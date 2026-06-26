@@ -55,11 +55,11 @@ jobs:
       # ── Step 5: Jalankan preprocessing
       - name: ⚙️ Run Preprocessing
         run: |
-          python preprocessing/automate_Rizki_Hidayat.py \
-            --input data/heart_disease_uci_raw.csv \
+          python Pre-processing/automate_Rizki_Hidayat.py \
+            --input heart_disease_uci_raw.csv \
             --target ${{ github.event.inputs.target_column || 'num' }} \
-            --model preprocessing/preprocessor.joblib \
-            --header preprocessing/heart_disease_uci_preprocessed.csv
+            --model Pre-processing/preprocessor.joblib \
+            --header Pre-processing/heart_disease_uci_preprocessed.csv
 
       # ── Step 6: Upload hasil sebagai artifact GitHub
       - name: 📤 Upload Hasil Preprocessing
@@ -67,5 +67,5 @@ jobs:
         with:
           name: preprocessing-outputs-${{ github.run_number }}
           path: |
-            preprocessing/preprocessor.joblib
-            preprocessing/heart_disease_uci_preprocessing.csv
+            Pre-processing/preprocessor.joblib
+            Pre-processing/heart_disease_uci_preprocessing.csv
