@@ -1,82 +1,106 @@
-name: Heart Disease Preprocessing Pipeline
-
+name: Eksperimen SML - Rizki Hidayat
+ 
 on:
-  # ── Trigger 1: Otomatis jalan saat ada push ke branch main/master
   push:
     branches:
       - main
       - master
     paths:
-      - 'heart_disease_uci_raw.csv'   # hanya jalan jika dataset berubah
-      - 'Pre-processing/automate_Rizki_Hidayat.py'             # atau jika script berubah
-
-  # ── Trigger 2: Bisa dijalankan manual dari tab Actions di GitHub
+      - 'heart_disease_uci_raw.csv'
+      - 'Pre-processing/automate_Rizki_Hidayat.py'
+ 
   workflow_dispatch:
     inputs:
       target_column:
         description: 'Nama kolom target'
         required: true
         default: 'num'
-        
-permissions: 
+ 
+permissions:
   contents: write
-
+ 
 jobs:
   preprocess:
     name: Run Preprocessing Pipeline
     runs-on: ubuntu-latest
-
+ 
     steps:
       # ── Step 1: Checkout repository
       - name: 📂 Checkout Repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0             # ambil full history agar git push tidak konflik
-
+          fetch-depth: 0
+ 
       # ── Step 2: Setup Python
-      - name: 🐍 Setup Python 3.12.7
+      - name: 🐍 Setup Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12.7'
-          cache: 'pip'              # cache pip supaya install lebih cepat
-
+          python-version: '3.11'
+          cache: 'pip'
+ 
       # ── Step 3: Install dependencies
       - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      # ── Step 4: Validasi dataset ada
+ 
+      # ── Step 4: Validasi dataset ada di root
       - name: 🔍 Validasi Dataset
         run: |
           if [ ! -f "heart_disease_uci_raw.csv" ]; then
-            echo "❌ ERROR: Dataset tidak ditemukan di folder data/"
+            echo "❌ ERROR: Dataset tidak ditemukan di root folder"
             exit 1
           fi
           echo "✅ Dataset ditemukan"
-          echo "📊 Info dataset:"
+          echo "📊 Jumlah baris:"
           wc -l heart_disease_uci_raw.csv
-
-      # ── Step 5: Jalankan preprocessing
+ 
+      # ── Step 5: Buat folder output jika belum ada
+      - name: 📁 Siapkan Folder Output
+        run: mkdir -p Pre-processing
+ 
+      # ── Step 6: Jalankan script preprocessing
       - name: ⚙️ Run Preprocessing
         run: |
           python Pre-processing/automate_Rizki_Hidayat.py \
             --input heart_disease_uci_raw.csv \
             --target ${{ github.event.inputs.target_column || 'num' }} \
             --model Pre-processing/preprocessor.joblib \
-            --header Pre-processing/heart_disease_uci_preprocessed.csv
-            
-      # ── Step 6: Commit & Push hasil output ke Repo
+            --header Pre-processing/heart_disease_uci_preprocessing.csv
+ 
+      # ── Step 7: Verifikasi file output benar-benar terbuat
+      - name: 🔎 Verifikasi Output Preprocessing
+        run: |
+          echo "📁 Isi folder Pre-processing:"
+          ls -lh Pre-processing/
+ 
+          if [ ! -f "Pre-processing/preprocessor.joblib" ]; then
+            echo "❌ ERROR: preprocessor.joblib tidak ditemukan!"
+            exit 1
+          fi
+ 
+          if [ ! -f "Pre-processing/heart_disease_uci_preprocessing.csv" ]; then
+            echo "❌ ERROR: heart_disease_uci_preprocessing.csv tidak ditemukan!"
+            exit 1
+          fi
+ 
+          echo "✅ Semua file output ditemukan"
+ 
+      # ── Step 8: Commit & Push hasil output ke repo
       - name: 💾 Commit Hasil Preprocessing ke Repo
         run: |
-          git config user.name "${{ secrets.GIT_USERNAME }}"
+          git config user.name  "${{ secrets.GIT_NAME }}"
           git config user.email "${{ secrets.GIT_EMAIL }}"
-
-          git add Pre-processing/preprocessor.joblib
-          git add Pre-processing/heart_disease_uci_preprocessing.csv
-
-          # Hanya commit jika ada perubahan (hindari empty commit)
+ 
+          # Tambahkan hanya jika file benar-benar ada
+          [ -f "Pre-processing/preprocessor.joblib" ] && \
+            git add Pre-processing/preprocessor.joblib
+ 
+          [ -f "Pre-processing/heart_disease_uci_preprocessing.csv" ] && \
+            git add Pre-processing/heart_disease_uci_preprocessing.csv
+ 
+          # Hanya commit jika ada perubahan
           if git diff --staged --quiet; then
             echo "⏭️  Tidak ada perubahan pada output, skip commit."
           else
@@ -84,12 +108,14 @@ jobs:
             git push
             echo "✅ Output berhasil di-commit ke repo"
           fi
-
-      # ── Step 7: Upload hasil sebagai artifact GitHub
-      - name: 📤 Upload Hasil Preprocessing
+ 
+      # ── Step 9: Upload sebagai artifact (backup)
+      - name: 📤 Upload Artifact (Backup)
         uses: actions/upload-artifact@v4
         with:
           name: preprocessing-outputs-${{ github.run_number }}
           path: |
             Pre-processing/preprocessor.joblib
             Pre-processing/heart_disease_uci_preprocessing.csv
+          retention-days: 30
+ 
