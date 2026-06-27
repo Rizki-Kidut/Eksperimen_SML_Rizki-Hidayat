@@ -60,17 +60,22 @@ jobs:
             --input heart_disease_uci_raw.csv \
             --target ${{ github.event.inputs.target_column || 'num' }} \
             --model Pre-processing/preprocessor.joblib \
-            --header Pre-processing/heart_disease_uci_preprocessing.csv
+            --train_path Pre-processing/heart_disease_train.csv \
+            --test_path  Pre-processing/heart_disease_test.csv
 
       - name: 🔎 Verifikasi Output
         run: |
           echo "📁 Isi folder Pre-processing:"
           ls -lh Pre-processing/
-          if [ ! -f "Pre-processing/heart_disease_uci_preprocessing.csv" ]; then
-            echo "❌ ERROR: CSV tidak ditemukan!"
+          if [ ! -f "Pre-processing/heart_disease_train.csv" ]; then
+            echo "❌ ERROR: CSV Train tidak ditemukan!"
             exit 1
           fi
-          echo "✅ Output ditemukan"
+          if [ ! -f "Pre-processing/heart_disease_test.csv" ]; then
+            echo "❌ ERROR: CSV Test tidak ditemukan!"
+            exit 1
+          fi
+          echo "✅ Semua output ditemukan"
 
       - name: 💾 Commit CSV ke Repo
         env:
@@ -84,12 +89,13 @@ jobs:
           git config user.name  "$NAME"
           git config user.email "$EMAIL"
 
-          git add Pre-processing/heart_disease_uci_preprocessing.csv
-
+          git add Pre-processing/heart_disease_train.csv
+          git add Pre-processing/heart_disease_test.csv
+          
           if git diff --staged --quiet; then
             echo "⏭️  Tidak ada perubahan, skip commit."
           else
             git commit -m "ci: update preprocessed dataset [run #${{ github.run_number }}]"
             git push
-            echo "✅ CSV berhasil di-commit ke repo"
+            echo "✅ CSV Train & Test berhasil di-commit ke repo"
           fi
