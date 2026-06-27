@@ -34,7 +34,7 @@ class OutlierCapper(BaseEstimator, TransformerMixin):
         return X_df.values
 
 
-def preprocess_data(data, target_column, save_path, file_path): 
+def preprocess_data(data, target_column, save_path, train_path, test_path): 
     print(f"\n{'='*50}")
     print(f"  Dataset shape     : {data.shape}")
     print(f"  Target column     : {target_column}")
@@ -43,6 +43,8 @@ def preprocess_data(data, target_column, save_path, file_path):
 
     X = data.drop(columns=[target_column])
     y = data[target_column]
+
+    original_column_order = X.columns.tolist()
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -54,11 +56,6 @@ def preprocess_data(data, target_column, save_path, file_path):
 
     print(f"📊 Numeric features    ({len(numeric_features)})    : {numeric_features}")
     print(f"🏷️  Categorical features ({len(categorical_features)}) : {categorical_features}\n")
-
-    column_names = X.columns
-    df_header = pd.DataFrame(columns=column_names)
-    df_header.to_csv(file_path, index=False)
-    print(f"💾 Header kolom disimpan ke: {file_path}")
 
     numeric_transformer = Pipeline(steps=[
         ('imputer', IterativeImputer(
@@ -93,6 +90,28 @@ def preprocess_data(data, target_column, save_path, file_path):
     dump(preprocessor, save_path)
     print(f"💾 Pipeline disimpan ke: {save_path}")
 
+    # ── ColumnTransformer output: numeric dulu, baru categorical
+    ct_column_order = numeric_features + categorical_features
+
+     # ── Buat DataFrame dengan urutan output ColumnTransformer dulu
+    df_train = pd.DataFrame(X_train_processed, columns=ct_column_order)
+    df_test  = pd.DataFrame(X_test_processed,  columns=ct_column_order)
+
+    # ── Reorder kolom agar sama dengan urutan header asli
+    df_train = df_train[original_column_order]
+    df_test  = df_test[original_column_order]
+
+    # ── Tambahkan kolom target
+    df_train[target_column] = y_train.values
+    df_test[target_column]  = y_test.values
+
+    # ── Simpan ke CSV
+    df_train.to_csv(train_path, index=False)
+    print(f"💾 CSV Train disimpan ke : {train_path} ({len(df_train)} baris)")
+ 
+    df_test.to_csv(test_path, index=False)
+    print(f"💾 CSV Test disimpan ke  : {test_path} ({len(df_test)} baris)")
+
     print(f"\n✅ Preprocessing selesai!")
     print(f"   X_train_processed : {X_train_processed.shape}")
     print(f"   X_test_processed  : {X_test_processed.shape}")
@@ -104,7 +123,8 @@ if __name__ == "__main__":
     parser.add_argument('--input',  type=str, default='heart_disease_uci_raw.csv')
     parser.add_argument('--target', type=str, default='num')
     parser.add_argument('--model',  type=str, default='preprocessing/preprocessor.joblib')
-    parser.add_argument('--header', type=str, default='preprocessing/heart_disease_uci_preprocessing.csv')
+    parser.add_argument('--train_path', type=str, default='Pre-processing/heart_disease_train.csv')
+    parser.add_argument('--test_path',  type=str, default='Pre-processing/heart_disease_test.csv')
     args = parser.parse_args()
 
     print(f"\n📂 Membaca dataset: {args.input}")
@@ -119,5 +139,6 @@ if __name__ == "__main__":
         data          = heart_data,
         target_column = args.target,
         save_path     = args.model,
-        file_path     = args.header
+        train_path    = args.train_path,
+        test_path     = args.test_path
     )
