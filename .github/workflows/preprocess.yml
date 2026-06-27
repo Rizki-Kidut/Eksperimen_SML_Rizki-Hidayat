@@ -8,7 +8,7 @@ on:
       - master
     paths:
       - 'heart_disease_uci_raw.csv'   # hanya jalan jika dataset berubah
-      - 'preprocess_heart.py'              # atau jika script berubah
+      - 'Pre-processing/automate_Rizki_Hidayat.py'             # atau jika script berubah
 
   # ── Trigger 2: Bisa dijalankan manual dari tab Actions di GitHub
   workflow_dispatch:
@@ -17,6 +17,9 @@ on:
         description: 'Nama kolom target'
         required: true
         default: 'num'
+        
+permissions: 
+  contents: write
 
 jobs:
   preprocess:
@@ -27,6 +30,9 @@ jobs:
       # ── Step 1: Checkout repository
       - name: 📂 Checkout Repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0             # ambil full history agar git push tidak konflik
 
       # ── Step 2: Setup Python
       - name: 🐍 Setup Python 3.12.7
