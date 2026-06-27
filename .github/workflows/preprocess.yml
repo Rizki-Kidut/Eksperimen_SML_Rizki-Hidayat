@@ -33,11 +33,16 @@ jobs:
           fetch-depth: 0
  
       # ── Step 2: Setup Python
-      - name: 🐍 Setup Python 3.11
+      - name: 🐍 Setup Python 3.12.7
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12.7'
           cache: 'pip'
+
+      # Check Env Variables
+      - name: Check Env
+        run: |
+          echo $CSV_URL
  
       # ── Step 3: Install dependencies
       - name: 📦 Install Dependencies
@@ -88,7 +93,7 @@ jobs:
           echo "✅ Semua file output ditemukan"
  
       # ── Step 8: Commit & Push hasil output ke repo
-      - name: 💾 Commit Hasil Preprocessing ke Repo
+      - name: 💾 Commit Hasil Preprocessing ke Re
         run: |
           git config user.name  "${{ secrets.GIT_NAME }}"
           git config user.email "${{ secrets.GIT_EMAIL }}"
