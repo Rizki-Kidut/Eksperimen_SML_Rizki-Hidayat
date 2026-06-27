@@ -38,11 +38,6 @@ jobs:
         with:
           python-version: '3.12.7'
           cache: 'pip'
-
-      # Check Env Variables
-      - name: Check Env
-        run: |
-          echo $CSV_URL
  
       # ── Step 3: Install dependencies
       - name: 📦 Install Dependencies
@@ -95,7 +90,7 @@ jobs:
       # ── Step 8: Commit & Push hasil output ke repo
       - name: 💾 Commit Hasil Preprocessing ke Re
         run: |
-          git config user.name  "${{ secrets.GIT_NAME }}"
+          git config user.name  "${{ secrets.GIT_USERNAME }}"
           git config user.email "${{ secrets.GIT_EMAIL }}"
  
           # Tambahkan hanya jika file benar-benar ada
