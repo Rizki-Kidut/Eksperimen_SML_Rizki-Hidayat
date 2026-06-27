@@ -68,7 +68,7 @@ jobs:
             --model Pre-processing/preprocessor.joblib \
             --header Pre-processing/heart_disease_uci_preprocessing.csv
 
-      # ── Step 7: Verifikasi file output benar-benar terbuat
+      # ── Step 7: Verifikasi file output
       - name: 🔎 Verifikasi Output Preprocessing
         run: |
           echo "📁 Isi folder Pre-processing:"
@@ -83,46 +83,16 @@ jobs:
           fi
           echo "✅ Semua file output ditemukan"
 
-      # ── Step 8: Upload .joblib ke Google Drive
+      # ── Step 8: Upload preprocessor.joblib ke Google Drive via Python
       - name: ☁️ Upload preprocessor.joblib ke Google Drive
         env:
-          # ✅ Secret dipass lewat env: agar bisa dibaca bash dengan benar
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
-          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
-        run: |
-          # Install rclone
-          curl https://rclone.org/install.sh | sudo bash
+          GDRIVE_FOLDER_ID:   ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: python Pre-processing/upload_to_gdrive.py
 
-          # ✅ Tulis JSON credentials ke file sementara
-          echo "$GDRIVE_CREDENTIALS" > /tmp/gdrive_creds.json
-
-          # ✅ Buat rclone.conf TANPA indentasi (rata kiri wajib!)
-          mkdir -p ~/.config/rclone
-          cat > ~/.config/rclone/rclone.conf << RCLONE_EOF
-[gdrive]
-type = drive
-scope = drive
-service_account_file = /tmp/gdrive_creds.json
-root_folder_id = ${GDRIVE_FOLDER_ID}
-RCLONE_EOF
-
-          echo "🔍 Isi rclone.conf:"
-          cat ~/.config/rclone/rclone.conf
-
-          # Upload & overwrite otomatis jika file sudah ada
-          rclone copy Pre-processing/preprocessor.joblib gdrive: \
-            --transfers 1 \
-            -v
-
-          echo "✅ preprocessor.joblib berhasil diupload ke Google Drive"
-
-          # Hapus credentials dari disk setelah selesai
-          rm -f /tmp/gdrive_creds.json
-
-      # ── Step 9: Commit CSV ke repo
+      # ── Step 9: Commit CSV preprocessed ke repo
       - name: 💾 Commit CSV ke Repo
         env:
-          # ✅ Secret dipass lewat env:
           GIT_USER_NAME:  ${{ secrets.GIT_USERNAME }}
           GIT_USER_EMAIL: ${{ secrets.GIT_EMAIL }}
           GITHUB_ACTOR:   ${{ github.actor }}
@@ -144,7 +114,7 @@ RCLONE_EOF
             echo "✅ CSV berhasil di-commit ke repo"
           fi
 
-      # ── Step 10: Upload sebagai artifact (backup)
+      # ── Step 10: Upload semua sebagai artifact (backup)
       - name: 📤 Upload Artifact (Backup)
         uses: actions/upload-artifact@v4
         with:
