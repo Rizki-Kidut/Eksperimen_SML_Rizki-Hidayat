@@ -86,30 +86,52 @@ jobs:
           fi
  
           echo "✅ Semua file output ditemukan"
+          
+
+      # ── Step 8: Upload .joblib ke Google Drive (overwrite otomatis):
+      - name: ☁️ Upload preprocessor.joblib ke Google Drive
+        run:  |
+          # Install rclone
+          curl https://rclone.org/install.sh | sudo bash
+          
+          # Konfigurasi rclone dengan service account
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf << RCLONE_EOF
+          [gdrive]
+          type = drive
+          scope = drive
+          service_account_file = "${{ secrets.GDRIVE_CREDENTIALS }}"
+          root_folder_id = "${{ secrets.GDRIVE_FOLDER_ID }}"
+          RCLONE_EOF
+
+          # Upload & overwrite otomatis jika file sudah ada
+          rclone copy Pre-processing/preprocessor.joblib gdrive: \
+            --drive-server-side-across-configs \
+            --transfers 1 \
+            -v
  
-      # ── Step 8: Commit & Push hasil output ke repo
+          echo "✅ preprocessor.joblib berhasil diupload ke Google Drive"
+          
+      # ── Step 9: Commit & Push hasil output ke repo
       - name: 💾 Commit Hasil Preprocessing ke Re
         run: |
           git config user.name  "${{ secrets.GIT_USERNAME }}"
           git config user.email "${{ secrets.GIT_EMAIL }}"
  
           # Tambahkan hanya jika file benar-benar ada
-          [ -f "Pre-processing/preprocessor.joblib" ] && \
-            git add Pre-processing/preprocessor.joblib
- 
           [ -f "Pre-processing/heart_disease_uci_preprocessing.csv" ] && \
             git add Pre-processing/heart_disease_uci_preprocessing.csv
  
           # Hanya commit jika ada perubahan
           if git diff --staged --quiet; then
-            echo "⏭️  Tidak ada perubahan pada output, skip commit."
+            echo "⏭️  Tidak ada perubahan pada CSV, skip commit."
           else
-            git commit -m "ci: update preprocessing output [run #${{ github.run_number }}]"
+            git commit -m "ci: update preprocessing dataset [run #${{ github.run_number }}]"
             git push
             echo "✅ Output berhasil di-commit ke repo"
           fi
  
-      # ── Step 9: Upload sebagai artifact (backup)
+      # ── Step 10: Upload sebagai artifact (backup)
       - name: 📤 Upload Artifact (Backup)
         uses: actions/upload-artifact@v4
         with:
