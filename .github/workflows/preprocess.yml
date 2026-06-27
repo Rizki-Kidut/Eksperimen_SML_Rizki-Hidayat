@@ -25,27 +25,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── Step 1: Checkout repository
       - name: 📂 Checkout Repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # ── Step 2: Setup Python
       - name: 🐍 Setup Python 3.12.7
         uses: actions/setup-python@v5
         with:
           python-version: '3.12.7'
           cache: 'pip'
 
-      # ── Step 3: Install dependencies
       - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── Step 4: Validasi dataset ada di root
       - name: 🔍 Validasi Dataset
         run: |
           if [ ! -f "heart_disease_uci_raw.csv" ]; then
@@ -55,11 +51,9 @@ jobs:
           echo "✅ Dataset ditemukan"
           wc -l heart_disease_uci_raw.csv
 
-      # ── Step 5: Buat folder output jika belum ada
       - name: 📁 Siapkan Folder Output
         run: mkdir -p Pre-processing
 
-      # ── Step 6: Jalankan script preprocessing
       - name: ⚙️ Run Preprocessing
         run: |
           python Pre-processing/automate_Rizki_Hidayat.py \
@@ -68,29 +62,16 @@ jobs:
             --model Pre-processing/preprocessor.joblib \
             --header Pre-processing/heart_disease_uci_preprocessing.csv
 
-      # ── Step 7: Verifikasi file output
-      - name: 🔎 Verifikasi Output Preprocessing
+      - name: 🔎 Verifikasi Output
         run: |
           echo "📁 Isi folder Pre-processing:"
           ls -lh Pre-processing/
-          if [ ! -f "Pre-processing/preprocessor.joblib" ]; then
-            echo "❌ ERROR: preprocessor.joblib tidak ditemukan!"
-            exit 1
-          fi
           if [ ! -f "Pre-processing/heart_disease_uci_preprocessing.csv" ]; then
-            echo "❌ ERROR: heart_disease_uci_preprocessing.csv tidak ditemukan!"
+            echo "❌ ERROR: CSV tidak ditemukan!"
             exit 1
           fi
-          echo "✅ Semua file output ditemukan"
+          echo "✅ Output ditemukan"
 
-      # ── Step 8: Upload preprocessor.joblib ke Google Drive via Python
-      - name: ☁️ Upload preprocessor.joblib ke Google Drive
-        env:
-          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
-          GDRIVE_FOLDER_ID:   ${{ secrets.GDRIVE_FOLDER_ID }}
-        run: python Pre-processing/upload_to_gdrive.py
-
-      # ── Step 9: Commit CSV preprocessed ke repo
       - name: 💾 Commit CSV ke Repo
         env:
           GIT_USER_NAME:  ${{ secrets.GIT_USERNAME }}
@@ -103,23 +84,12 @@ jobs:
           git config user.name  "$NAME"
           git config user.email "$EMAIL"
 
-          [ -f "Pre-processing/heart_disease_uci_preprocessing.csv" ] && \
-            git add Pre-processing/heart_disease_uci_preprocessing.csv
+          git add Pre-processing/heart_disease_uci_preprocessing.csv
 
           if git diff --staged --quiet; then
-            echo "⏭️  Tidak ada perubahan pada CSV, skip commit."
+            echo "⏭️  Tidak ada perubahan, skip commit."
           else
             git commit -m "ci: update preprocessed dataset [run #${{ github.run_number }}]"
             git push
             echo "✅ CSV berhasil di-commit ke repo"
           fi
-
-      # ── Step 10: Upload semua sebagai artifact (backup)
-      - name: 📤 Upload Artifact (Backup)
-        uses: actions/upload-artifact@v4
-        with:
-          name: preprocessing-outputs-${{ github.run_number }}
-          path: |
-            Pre-processing/preprocessor.joblib
-            Pre-processing/heart_disease_uci_preprocessing.csv
-          retention-days: 30
