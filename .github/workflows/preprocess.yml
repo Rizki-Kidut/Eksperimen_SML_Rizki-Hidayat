@@ -1,5 +1,5 @@
 name: Eksperimen SML - Rizki Hidayat
- 
+
 on:
   push:
     branches:
@@ -8,22 +8,22 @@ on:
     paths:
       - 'heart_disease_uci_raw.csv'
       - 'Pre-processing/automate_Rizki_Hidayat.py'
- 
+
   workflow_dispatch:
     inputs:
       target_column:
         description: 'Nama kolom target'
         required: true
         default: 'num'
- 
+
 permissions:
   contents: write
- 
+
 jobs:
   preprocess:
     name: Run Preprocessing Pipeline
     runs-on: ubuntu-latest
- 
+
     steps:
       # ── Step 1: Checkout repository
       - name: 📂 Checkout Repository
@@ -31,20 +31,20 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
- 
+
       # ── Step 2: Setup Python
       - name: 🐍 Setup Python 3.12.7
         uses: actions/setup-python@v5
         with:
           python-version: '3.12.7'
           cache: 'pip'
- 
+
       # ── Step 3: Install dependencies
       - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
- 
+
       # ── Step 4: Validasi dataset ada di root
       - name: 🔍 Validasi Dataset
         run: |
@@ -53,13 +53,12 @@ jobs:
             exit 1
           fi
           echo "✅ Dataset ditemukan"
-          echo "📊 Jumlah baris:"
           wc -l heart_disease_uci_raw.csv
- 
+
       # ── Step 5: Buat folder output jika belum ada
       - name: 📁 Siapkan Folder Output
         run: mkdir -p Pre-processing
- 
+
       # ── Step 6: Jalankan script preprocessing
       - name: ⚙️ Run Preprocessing
         run: |
@@ -68,69 +67,83 @@ jobs:
             --target ${{ github.event.inputs.target_column || 'num' }} \
             --model Pre-processing/preprocessor.joblib \
             --header Pre-processing/heart_disease_uci_preprocessing.csv
- 
+
       # ── Step 7: Verifikasi file output benar-benar terbuat
       - name: 🔎 Verifikasi Output Preprocessing
         run: |
           echo "📁 Isi folder Pre-processing:"
           ls -lh Pre-processing/
- 
           if [ ! -f "Pre-processing/preprocessor.joblib" ]; then
             echo "❌ ERROR: preprocessor.joblib tidak ditemukan!"
             exit 1
           fi
- 
           if [ ! -f "Pre-processing/heart_disease_uci_preprocessing.csv" ]; then
             echo "❌ ERROR: heart_disease_uci_preprocessing.csv tidak ditemukan!"
             exit 1
           fi
- 
           echo "✅ Semua file output ditemukan"
-          
 
-      # ── Step 8: Upload .joblib ke Google Drive (overwrite otomatis):
+      # ── Step 8: Upload .joblib ke Google Drive
       - name: ☁️ Upload preprocessor.joblib ke Google Drive
-        run:  |
+        env:
+          # ✅ Secret dipass lewat env: agar bisa dibaca bash dengan benar
+          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
           # Install rclone
           curl https://rclone.org/install.sh | sudo bash
-          
-          # Konfigurasi rclone dengan service account
+
+          # ✅ Tulis JSON credentials ke file sementara
+          echo "$GDRIVE_CREDENTIALS" > /tmp/gdrive_creds.json
+
+          # ✅ Buat rclone.conf TANPA indentasi (rata kiri wajib!)
           mkdir -p ~/.config/rclone
           cat > ~/.config/rclone/rclone.conf << RCLONE_EOF
-          [gdrive]
-          type = drive
-          scope = drive
-          service_account_file = "${{ secrets.GDRIVE_CREDENTIALS }}"
-          root_folder_id = "${{ secrets.GDRIVE_FOLDER_ID }}"
-          RCLONE_EOF
+[gdrive]
+type = drive
+scope = drive
+service_account_file = /tmp/gdrive_creds.json
+root_folder_id = ${GDRIVE_FOLDER_ID}
+RCLONE_EOF
+
+          echo "🔍 Isi rclone.conf:"
+          cat ~/.config/rclone/rclone.conf
 
           # Upload & overwrite otomatis jika file sudah ada
           rclone copy Pre-processing/preprocessor.joblib gdrive: \
-            --drive-server-side-across-configs \
             --transfers 1 \
             -v
- 
+
           echo "✅ preprocessor.joblib berhasil diupload ke Google Drive"
-          
-      # ── Step 9: Commit & Push hasil output ke repo
-      - name: 💾 Commit Hasil Preprocessing ke Re
+
+          # Hapus credentials dari disk setelah selesai
+          rm -f /tmp/gdrive_creds.json
+
+      # ── Step 9: Commit CSV ke repo
+      - name: 💾 Commit CSV ke Repo
+        env:
+          # ✅ Secret dipass lewat env:
+          GIT_USER_NAME:  ${{ secrets.GIT_USERNAME }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_EMAIL }}
+          GITHUB_ACTOR:   ${{ github.actor }}
         run: |
-          git config user.name  "${{ secrets.GIT_USERNAME }}"
-          git config user.email "${{ secrets.GIT_EMAIL }}"
- 
-          # Tambahkan hanya jika file benar-benar ada
+          NAME="${GIT_USER_NAME:-$GITHUB_ACTOR}"
+          EMAIL="${GIT_USER_EMAIL:-${GITHUB_ACTOR}@users.noreply.github.com}"
+
+          git config user.name  "$NAME"
+          git config user.email "$EMAIL"
+
           [ -f "Pre-processing/heart_disease_uci_preprocessing.csv" ] && \
             git add Pre-processing/heart_disease_uci_preprocessing.csv
- 
-          # Hanya commit jika ada perubahan
+
           if git diff --staged --quiet; then
             echo "⏭️  Tidak ada perubahan pada CSV, skip commit."
           else
-            git commit -m "ci: update preprocessing dataset [run #${{ github.run_number }}]"
+            git commit -m "ci: update preprocessed dataset [run #${{ github.run_number }}]"
             git push
-            echo "✅ Output berhasil di-commit ke repo"
+            echo "✅ CSV berhasil di-commit ke repo"
           fi
- 
+
       # ── Step 10: Upload sebagai artifact (backup)
       - name: 📤 Upload Artifact (Backup)
         uses: actions/upload-artifact@v4
@@ -140,4 +153,3 @@ jobs:
             Pre-processing/preprocessor.joblib
             Pre-processing/heart_disease_uci_preprocessing.csv
           retention-days: 30
- 
