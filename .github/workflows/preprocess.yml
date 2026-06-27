@@ -60,8 +60,26 @@ jobs:
             --target ${{ github.event.inputs.target_column || 'num' }} \
             --model Pre-processing/preprocessor.joblib \
             --header Pre-processing/heart_disease_uci_preprocessed.csv
+            
+      # ── Step 6: Commit & Push hasil output ke Repo
+      - name: 💾 Commit Hasil Preprocessing ke Repo
+        run: |
+          git config user.name "${{ secrets.GIT_USERNAME }}"
+          git config user.email "${{ secrets.GIT_EMAIL }}"
 
-      # ── Step 6: Upload hasil sebagai artifact GitHub
+          git add Pre-processing/preprocessor.joblib
+          git add Pre-processing/heart_disease_uci_preprocessing.csv
+
+          # Hanya commit jika ada perubahan (hindari empty commit)
+          if git diff --staged --quiet; then
+            echo "⏭️  Tidak ada perubahan pada output, skip commit."
+          else
+            git commit -m "ci: update preprocessing output [run #${{ github.run_number }}]"
+            git push
+            echo "✅ Output berhasil di-commit ke repo"
+          fi
+
+      # ── Step 7: Upload hasil sebagai artifact GitHub
       - name: 📤 Upload Hasil Preprocessing
         uses: actions/upload-artifact@v4
         with:
